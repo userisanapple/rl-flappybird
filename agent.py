@@ -9,15 +9,15 @@ def obs_to_state(obs):
     l_pipe_h_bin = np.digitize(last_pipe[0], h_bins) - 1
 
     player = obs[9:]
-    # player vertical position - last bottom pipe vertical position
-    player_velocity_bin = np.digitize(player[1], v_bins) - 1
+    player_v_bin = np.digitize(player[0], v_bins) - 1
 
+    # player vertical position - last bottom pipe vertical position
     height_diff_bin = np.digitize(player[0] - last_pipe[2], v_bins) - 1
 
-    return (l_pipe_h_bin, player_velocity_bin, height_diff_bin)
+    return (l_pipe_h_bin, player_v_bin, height_diff_bin)
 
-# env = gym.make("FlappyBird-v0", render_mode="human", use_lidar=False)
-env = gym.make("FlappyBird-v0", use_lidar=False)
+env = gym.make("FlappyBird-v0", render_mode="human", use_lidar=False)
+# env = gym.make("FlappyBird-v0", use_lidar=False)
 
 # n bins here for horizontal distance, still tweaking this number
 h_bins = np.linspace(-1, 1, num=5) 
@@ -38,21 +38,33 @@ for episode in tqdm(range(n_episodes)):
     while True:
         # Next action:
         # (feed the observation to your agent here)
-        q_value = q_table[obs_to_state(obs)]
-        action = np.argmax(q_value)
+        q_state = q_table[obs_to_state(obs)]
+        action = np.argmax(q_state)
 
         # Processing:
-        obs_old = obs
+        old_state = obs_to_state(obs)
         obs, reward, terminated, _, info = env.step(action)
-        if not episode % 5000:
-            np.save(f'{episode}-qtable.npy', q_table)
 
-        q_next_value = q_table[obs_to_state(obs)]
-        q_new = ((1-lr) * q_value[action]) + (lr * (reward + (df * np.max(q_next_value))))
-        q_table[obs_to_state(obs_old),action] = q_new
+
+        last_pipe_top_v = obs[1]
+        last_pipe_bottom_v = obs[2]
+        player_v = obs[9]
+
+        # penalize being if below bottom pipe
+        if player_v < last_pipe_bottom_v:
+            reward -= .25 * (last_pipe_bottom_v - player_v)
+        # or above top pipe
+        if player_v > last_pipe_top_v:
+            reward -= .25 * (player_v - last_pipe_top_v)
+
+        q_next_state = q_table[obs_to_state(obs)]
+        q_table[old_state][action] = (1-lr) * q_state[action] + lr * (reward + df * np.max(q_next_state))
         
         # Checking if the player is still alive
         if terminated:
             break
+
+    if not episode % 5000:
+        np.save(f'{episode}-qtable.npy', q_table)
 
 env.close()
