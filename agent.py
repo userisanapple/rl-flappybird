@@ -22,7 +22,8 @@ class FlappyBirdAgent:
         self.h_bins = np.linspace(-1, 1, num=5) 
         self.v_bins = np.linspace(-1, 1, num=15) 
         self.rng = np.random.default_rng(seed=seed)
-        self.q_table = self.rng.uniform(low=0, high=0.1, size=(self.v_bins.size, self.h_bins.size, self.v_bins.size, env.action_space.n))
+        # self.q_table = self.rng.uniform(low=0, high=0.1, size=(self.v_bins.size, self.h_bins.size, self.v_bins.size, env.action_space.n))
+        self.q_table = np.full((self.v_bins.size, self.h_bins.size, self.v_bins.size, env.action_space.n), fill_value=10.0)
 
     def obs_to_state(self, obs: gym.spaces.Space):
         # get vertical distance between two pipes
@@ -54,12 +55,10 @@ class FlappyBirdAgent:
         return np.argmax(q_state)
 
     def update(self, old_state: tuple, action: int, reward: float, obs: gym.spaces.Space):
-        q_sa = (1-self.lr) * self.q_table[old_state][action]
-        r = self.lr * reward
-        new_state = self.obs_to_state(obs)
-        new_action = np.max(self.q_table[new_state])
-        q_sa_new = self.lr * self.df * new_action
-        self.q_table[old_state][action] = q_sa + r + q_sa_new
+        q_sa = self.q_table[old_state][action]
+        next_action = np.max(self.q_table[self.obs_to_state(obs)])
+        q_sa_next = self.df * next_action
+        self.q_table[old_state][action] = q_sa + (self.lr * (reward + q_sa_next - q_sa))
     
     def decay_epsilon(self):
         self.epsilon = max(self.end_epsilon, self.epsilon - self.epsilon_decay)
