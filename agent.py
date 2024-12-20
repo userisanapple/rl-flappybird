@@ -19,11 +19,11 @@ class FlappyBirdAgent:
         self.epsilon = start_epsilon
         self.epsilon_decay = epsilon_decay
         self.end_epsilon = end_epsilon
-        self.h_bins = np.linspace(-1, 1, num=5) 
+        self.h_bins = np.linspace(-1, 1, num=3) 
         self.v_bins = np.linspace(-1, 1, num=15) 
+        self.r_bins = np.linspace(-1, 1, num=10) 
         self.rng = np.random.default_rng(seed=seed)
-        # self.q_table = self.rng.uniform(low=0, high=0.1, size=(self.v_bins.size, self.h_bins.size, self.v_bins.size, env.action_space.n))
-        self.q_table = np.full((self.v_bins.size, self.h_bins.size, self.v_bins.size, env.action_space.n), fill_value=10.0)
+        self.q_table = np.full((self.v_bins.size, self.h_bins.size, self.v_bins.size, self.v_bins.size, self.r_bins.size, env.action_space.n), fill_value=10.0)
 
     def obs_to_state(self, obs: gym.spaces.Space):
         # get vertical distance between two pipes
@@ -42,11 +42,16 @@ class FlappyBirdAgent:
             next_pipe_distance = last_pipe_h
             player_pipe_v_distance = player_v - last_pipe_v
 
+        player_velocity = obs[10]
+        player_rot = obs[11]
+
         b1 = np.digitize(player_pipe_v_distance, self.v_bins) - 1
         b2 = np.digitize(next_pipe_distance, self.h_bins) - 1
         b3 = np.digitize(pipe_v_distance, self.v_bins) - 1
+        b4 = np.digitize(player_velocity, self.v_bins) - 1
+        b5 = np.digitize(player_rot, self.r_bins) - 1
 
-        return (b1, b2, b3)
+        return (b1, b2, b3, b4, b5)
     
     def get_action(self, obs: gym.spaces.Space):
         if self.rng.random() < self.epsilon:
@@ -54,9 +59,9 @@ class FlappyBirdAgent:
         q_state = self.q_table[self.obs_to_state(obs)]
         return np.argmax(q_state)
 
-    def update(self, old_state: tuple, action: int, reward: float, obs: gym.spaces.Space):
+    def update(self, old_state: tuple, action: int, reward: float, terminated: bool, obs: gym.spaces.Space):
         q_sa = self.q_table[old_state][action]
-        next_action = np.max(self.q_table[self.obs_to_state(obs)])
+        next_action = (not terminated) * np.max(self.q_table[self.obs_to_state(obs)])
         q_sa_next = self.df * next_action
         self.q_table[old_state][action] = q_sa + (self.lr * (reward + q_sa_next - q_sa))
     

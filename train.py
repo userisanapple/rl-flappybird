@@ -21,13 +21,13 @@ if __name__ == '__main__':
         while True:
             # Next action:
             # (feed the observation to your agent here)
+            state = agent.obs_to_state(obs)
             action = agent.get_action(obs)
 
             # Processing:
-            old_state = agent.obs_to_state(obs)
             obs, reward, terminated, _, info = env.step(action)
 
-            agent.update(old_state, action, reward, obs)
+            agent.update(state, action, reward, terminated, obs)
             
             # Checking if the player is still alive
             if terminated:
