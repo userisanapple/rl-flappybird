@@ -14,7 +14,7 @@ if __name__ == '__main__':
     env = gym.make("FlappyBird-v0", render_mode="rgb_array", use_lidar=False)
     env = RecordVideo(env, video_folder="flappybird-agent", name_prefix="training", episode_trigger=lambda x: x % save_interval == 0)
 
-    agent = FlappyBirdAgent(env)
+    agent = FlappyBirdAgent(env=env, start_epsilon=1.0, epsilon_decay=1.0/(n_episodes/2), end_epsilon=0.1)
 
     for episode in tqdm(range(n_episodes)):
         obs, _ = env.reset()
@@ -32,6 +32,7 @@ if __name__ == '__main__':
             # Checking if the player is still alive
             if terminated:
                 break
+            agent.decay_epsilon()
 
         if not episode % save_interval:
             if not os.path.exists('episodes'):

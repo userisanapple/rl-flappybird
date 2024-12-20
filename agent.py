@@ -4,7 +4,11 @@ import numpy as np
 class FlappyBirdAgent:
     def __init__(
         self,
+        *,
         env: gym.Env,
+        start_epsilon: float,
+        epsilon_decay: float,
+        end_epsilon: float,
         learning_rate: float = 0.01,
         discount_factor: float = 0.95,
         seed: int = 1234
@@ -12,10 +16,13 @@ class FlappyBirdAgent:
         self.env = env
         self.lr = learning_rate
         self.df = discount_factor
+        self.epsilon = start_epsilon
+        self.epsilon_decay = epsilon_decay
+        self.end_epsilon = end_epsilon
         self.h_bins = np.linspace(-1, 1, num=5) 
         self.v_bins = np.linspace(-1, 1, num=15) 
-        rng = np.random.default_rng(seed=seed)
-        self.q_table = rng.uniform(low=0, high=0.1, size=(self.v_bins.size, self.h_bins.size, self.v_bins.size, env.action_space.n))
+        self.rng = np.random.default_rng(seed=seed)
+        self.q_table = self.rng.uniform(low=0, high=0.1, size=(self.v_bins.size, self.h_bins.size, self.v_bins.size, env.action_space.n))
 
     def obs_to_state(self, obs: gym.spaces.Space):
         # get vertical distance between two pipes
@@ -41,6 +48,8 @@ class FlappyBirdAgent:
         return (b1, b2, b3)
     
     def get_action(self, obs: gym.spaces.Space):
+        if self.rng.random() < self.epsilon:
+            return self.env.action_space.sample()
         q_state = self.q_table[self.obs_to_state(obs)]
         return np.argmax(q_state)
 
@@ -51,3 +60,6 @@ class FlappyBirdAgent:
         new_action = np.max(self.q_table[new_state])
         q_sa_new = self.lr * self.df * new_action
         self.q_table[old_state][action] = q_sa + r + q_sa_new
+    
+    def decay_epsilon(self):
+        self.epsilon = max(self.end_epsilon, self.epsilon - self.epsilon_decay)
