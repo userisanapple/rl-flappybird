@@ -13,7 +13,7 @@ def obs_to_qval(obs):
     player = obs[9:]
     player_v_bin = np.digitize(player[0], v_bins) - 1
     player_velocity_bin = np.digitize(player[1], v_bins) - 1
-    player_rotation_bin = np.digitize(player[1], v_bins) - 1
+    player_rotation_bin = np.digitize(player[2], v_bins) - 1
 
     return q_table[l_pipe_h_bin,l_top_pipe_v_bin,l_bottom_pipe_v_bin,player_v_bin,player_velocity_bin,player_rotation_bin,:]
 
@@ -26,12 +26,13 @@ def obs_to_qtable(obs, action, q_value):
     player = obs[9:]
     player_v_bin = np.digitize(player[0], v_bins) - 1
     player_velocity_bin = np.digitize(player[1], v_bins) - 1
-    player_rotation_bin = np.digitize(player[1], v_bins) - 1
+    player_rotation_bin = np.digitize(player[2], v_bins) - 1
 
     q_table[l_pipe_h_bin,l_top_pipe_v_bin,l_bottom_pipe_v_bin,player_v_bin,player_velocity_bin,player_rotation_bin,action] = q_value
 
 
-env = gym.make("FlappyBird-v0", render_mode="human", use_lidar=False)
+# env = gym.make("FlappyBird-v0", render_mode="human", use_lidar=False)
+env = gym.make("FlappyBird-v0", use_lidar=False)
 
 # n bins here for horizontal distance, still tweaking this number
 h_bins = np.linspace(-1, 1, num=5) 
@@ -43,23 +44,23 @@ rng = np.random.default_rng(seed=1234)
 q_table = rng.uniform(low=0, high=0.1, size=(5, 5, 5, 5, 5, 5, 2))
 
 df = 0.95
-lr = 0.1
+lr = 0.01
 
-n_episodes = 1000
+n_episodes = 100_000
 
 for episode in tqdm(range(n_episodes)):
     obs, _ = env.reset()
     while True:
         # Next action:
         # (feed the observation to your agent here)
-        # action = env.action_space.sample()
         q_value = obs_to_qval(obs)
         action = np.argmax(q_value)
-        # print(np.argmax(q_value))
 
         # Processing:
         obs_old = obs
         obs, reward, terminated, _, info = env.step(action)
+        if not episode % 5000:
+            np.save(f'{episode}-qtable.npy', q_table)
 
         q_next_value = obs_to_qval(obs)
         q_new = ((1-lr) * q_value[action]) + (lr * (reward + (df * np.max(q_next_value))))
