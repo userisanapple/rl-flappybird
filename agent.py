@@ -4,32 +4,17 @@ import flappy_bird_gymnasium
 import gymnasium as gym
 import numpy as np
 
-def obs_to_qval(obs):
+def obs_to_state(obs):
     last_pipe = obs[:3]
     l_pipe_h_bin = np.digitize(last_pipe[0], h_bins) - 1
-    l_top_pipe_v_bin = np.digitize(last_pipe[1], v_bins) - 1
-    l_bottom_pipe_v_bin = np.digitize(last_pipe[2], v_bins) - 1
 
     player = obs[9:]
-    player_v_bin = np.digitize(player[0], v_bins) - 1
+    # player vertical position - last bottom pipe vertical position
     player_velocity_bin = np.digitize(player[1], v_bins) - 1
-    player_rotation_bin = np.digitize(player[2], v_bins) - 1
 
-    return q_table[l_pipe_h_bin,l_top_pipe_v_bin,l_bottom_pipe_v_bin,player_v_bin,player_velocity_bin,player_rotation_bin,:]
+    height_diff_bin = np.digitize(player[0] - last_pipe[2], v_bins) - 1
 
-def obs_to_qtable(obs, action, q_value):
-    last_pipe = obs[:3]
-    l_pipe_h_bin = np.digitize(last_pipe[0], h_bins) - 1
-    l_top_pipe_v_bin = np.digitize(last_pipe[1], v_bins) - 1
-    l_bottom_pipe_v_bin = np.digitize(last_pipe[2], v_bins) - 1
-
-    player = obs[9:]
-    player_v_bin = np.digitize(player[0], v_bins) - 1
-    player_velocity_bin = np.digitize(player[1], v_bins) - 1
-    player_rotation_bin = np.digitize(player[2], v_bins) - 1
-
-    q_table[l_pipe_h_bin,l_top_pipe_v_bin,l_bottom_pipe_v_bin,player_v_bin,player_velocity_bin,player_rotation_bin,action] = q_value
-
+    return (l_pipe_h_bin, player_velocity_bin, height_diff_bin)
 
 # env = gym.make("FlappyBird-v0", render_mode="human", use_lidar=False)
 env = gym.make("FlappyBird-v0", use_lidar=False)
@@ -41,7 +26,7 @@ h_bins = np.linspace(-1, 1, num=5)
 v_bins = h_bins 
 
 rng = np.random.default_rng(seed=1234)
-q_table = rng.uniform(low=0, high=0.1, size=(5, 5, 5, 5, 5, 5, 2))
+q_table = rng.uniform(low=0, high=0.1, size=(5, 5, 5, 2))
 
 df = 0.95
 lr = 0.01
@@ -53,7 +38,7 @@ for episode in tqdm(range(n_episodes)):
     while True:
         # Next action:
         # (feed the observation to your agent here)
-        q_value = obs_to_qval(obs)
+        q_value = q_table[obs_to_state(obs)]
         action = np.argmax(q_value)
 
         # Processing:
@@ -62,9 +47,9 @@ for episode in tqdm(range(n_episodes)):
         if not episode % 5000:
             np.save(f'{episode}-qtable.npy', q_table)
 
-        q_next_value = obs_to_qval(obs)
+        q_next_value = q_table[obs_to_state(obs)]
         q_new = ((1-lr) * q_value[action]) + (lr * (reward + (df * np.max(q_next_value))))
-        obs_to_qtable(obs_old, action, q_new)
+        q_table[obs_to_state(obs_old),action] = q_new
         
         # Checking if the player is still alive
         if terminated:
