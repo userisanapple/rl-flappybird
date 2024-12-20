@@ -16,8 +16,10 @@ if __name__ == '__main__':
     env = RecordVideo(env, video_folder="episodes", name_prefix="training", episode_trigger=lambda x: x % save_interval == 0)
     env = RecordEpisodeStatistics(env)
 
-    agent = FlappyBirdAgent(env=env, start_epsilon=1.0, epsilon_decay=1.0/(n_episodes/2), end_epsilon=0.1)
+    agent = FlappyBirdAgent(env=env, start_epsilon=1.5, epsilon_decay=1.0/(n_episodes), end_epsilon=0.1)
 
+    interval_total_reward = 0
+    interval_total_len = 0
     for episode in tqdm(range(n_episodes)):
         obs, _ = env.reset()
         while True:
@@ -28,6 +30,9 @@ if __name__ == '__main__':
 
             # Processing:
             obs, reward, terminated, _, info = env.step(action)
+            if 'episode' in info:
+                interval_total_reward += info['episode']['r']
+                interval_total_len += info['episode']['l']
 
             agent.update(state, action, reward, terminated, obs)
             
@@ -39,7 +44,11 @@ if __name__ == '__main__':
         if not episode % save_interval:
             if not os.path.exists('episodes'):
                 os.mkdir('episodes')
-            print(f'Episode statistics: {info['episode']}')
+            print(f'avg score: {interval_total_reward/save_interval}', end='\t')
+            if 'episode' in info:
+                print(f'avg len: {interval_total_len/save_interval}',end='\t')
+            print(f'epsilon: {agent.epsilon}')
+            interval_total_reward = 0
             episode_path = os.path.join('episodes', f'{episode}-qtable.npy')
             np.save(episode_path, agent.q_table)
 
