@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-def plot_data(n_episodes: int, ep_min_scores: list, ep_average_scores: list, ep_cumulative_scores: list, ep_max_scores: list, ep_lengths: list) -> tuple:
+def get_pyplot_from_data(n_episodes: int, ep_min_scores: list, ep_average_scores: list, ep_cumulative_scores: list, ep_max_scores: list, ep_lengths: list) -> tuple:
     plt.close()
     fig, ax = plt.subplots(1, 2, figsize=(15,5), sharex=True)
     linspace_x = np.linspace(0, n_episodes, num=n_episodes, dtype=int)
@@ -31,16 +31,20 @@ def plot_data(n_episodes: int, ep_min_scores: list, ep_average_scores: list, ep_
 
 if __name__ == '__main__':
     n_episodes = 100_000
-    save_interval = 5000
+    save_interval = 10000
+    save = True
 
-    env = gym.make("FlappyBird-v0", render_mode="rgb_array", use_lidar=False)
-    env = RecordVideo(env, video_folder="episodes", name_prefix="training", episode_trigger=lambda x: x % save_interval == 0)
+    if save:
+        env = gym.make("FlappyBird-v0", render_mode="rgb_array", use_lidar=False)
+        env = RecordVideo(env, video_folder="episodes", name_prefix="training", episode_trigger=lambda x: x % save_interval == 0)
+    else:
+        env = gym.make("FlappyBird-v0", render_mode="human", use_lidar=False)
     env = RecordEpisodeStatistics(env)
 
     agent = FlappyBirdAgent(
         env=env,
         start_lr=0.1,
-        lr_decay=1.0/(n_episodes*2),
+        lr_decay=1.0/(n_episodes*4),
         start_epsilon=1.5,
         epsilon_decay=1.0/(n_episodes/1000),
         end_epsilon=0.01,
@@ -76,7 +80,7 @@ if __name__ == '__main__':
                 min_score = shaped_reward
             cumulative_score += shaped_reward
 
-            agent.update(state, action, reward, terminated, obs)
+            agent.update(state, action, shaped_reward, terminated, obs)
             
             # Checking if the player is still alive
             if terminated:
@@ -101,20 +105,32 @@ if __name__ == '__main__':
             interval_total_reward = 0
             interval_total_len = 0
 
-            # make episode dir
-            if not os.path.exists('episodes'):
-                os.mkdir('episodes')
+            if save:
+                # make episode dir
+                if not os.path.exists('episodes'):
+                    os.mkdir('episodes')
 
-            # save qtable
-            episode_path = os.path.join('episodes', f'{episode}-qtable.npy')
-            np.save(episode_path, agent.q_table)
+                # save qtable
+                episode_path = os.path.join('episodes', f'qtable-{episode}.npy')
+                np.save(episode_path, agent.q_table)
 
-            # save plot
-            fig, ax = plot_data(episode+1, ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths)
-            plt.savefig(os.path.join('episodes', f'{episode}-plots.png'))
+                # save plot
+                plot_data = np.array([ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths]) 
+                np.save(os.path.join('episodes', f'plot-{episode}.npy'), plot_data)
+
+                fig, ax = get_pyplot_from_data(episode+1, ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths)
+                plt.savefig(os.path.join('episodes', f'plot-{episode}.png'))
         agent.decay()
         
     env.close()
 
-    fig, ax = plot_data(n_episodes, ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths)
+    fig, ax = get_pyplot_from_data(n_episodes, ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths)
+    if save:
+        episode_path = os.path.join('episodes', f'{episode}-qtable.npy')
+        np.save(episode_path, agent.q_table)
+
+        plot_data = np.array([ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths]) 
+        np.save(os.path.join('episodes', f'plot-{episode}.npy'), plot_data)
+
+        plt.savefig(os.path.join('episodes', f'plot-{episode}.png'))
     plt.show()

@@ -94,8 +94,6 @@ class FlappyBirdAgent:
         return shaped_reward
 
     def update(self, old_state: tuple, action: int, reward: float, terminated: bool, obs: gym.spaces.Space):
-        reward = self.shape_reward(obs, reward)
-
         q_sa = self.q_table[old_state][action]
         next_action = (not terminated) * np.max(self.q_table[self.obs_to_state(obs)])
         q_sa_next = self.df * next_action
