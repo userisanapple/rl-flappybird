@@ -10,18 +10,27 @@ import os
 
 def get_pyplot_from_data(n_episodes: int, ep_min_scores: list, ep_average_scores: list, ep_cumulative_scores: list, ep_max_scores: list, ep_lengths: list) -> tuple:
     plt.close()
+
+    x_resolution = 75
+
+    # the np.reshape we do below requires that x_resolution is a multiple of the size of our input array, so we ignore the last index_truncate values to satisfy this requirement
+    index_truncate = 0
+    while (n_episodes - index_truncate) % x_resolution:
+        index_truncate += 1
+
     fig, ax = plt.subplots(1, 2, figsize=(15,5), sharex=True)
-    linspace_x = np.linspace(0, n_episodes, num=n_episodes, dtype=int)
+    linspace_x = np.linspace(0, n_episodes, num=x_resolution, dtype=int)
+    new_shape = (-1, (n_episodes - index_truncate) // x_resolution)
     scores_ax = ax[0]
-    scores_ax.plot(linspace_x, ep_cumulative_scores, label='Cumulative episode reward')
-    scores_ax.plot(linspace_x, ep_average_scores, label='Average episode reward')
-    scores_ax.plot(linspace_x, ep_min_scores, label='Min episode reward')
-    scores_ax.plot(linspace_x, ep_max_scores, label='Max episode reward')
+    scores_ax.plot(linspace_x, np.average(np.array(ep_cumulative_scores[:-index_truncate]).reshape(new_shape), axis=1), label='Cumulative episode reward')
+    scores_ax.plot(linspace_x, np.average(np.array(ep_average_scores[:-index_truncate]).reshape(new_shape), axis=1), label='Average episode reward')
+    scores_ax.plot(linspace_x, np.average(np.array(ep_min_scores[:-index_truncate]).reshape(new_shape), axis=1), label='Min episode reward')
+    scores_ax.plot(linspace_x, np.average(np.array(ep_max_scores[:-index_truncate]).reshape(new_shape), axis=1), label='Max episode reward')
     scores_ax.set_ylabel('Reward')
     scores_ax.legend()
 
     length_ax = ax[1]
-    length_ax.plot(linspace_x, ep_lengths, label='Episode length')
+    length_ax.plot(linspace_x, np.average(np.array(ep_lengths[:-index_truncate]).reshape(new_shape), axis=1), label='Episode length')
     length_ax.set_ylabel('Length')
     length_ax.legend()
     
@@ -31,7 +40,7 @@ def get_pyplot_from_data(n_episodes: int, ep_min_scores: list, ep_average_scores
 
 if __name__ == '__main__':
     n_episodes = 100_000
-    save_interval = 10000
+    save_interval = 10_000
     save = True
 
     if save:
@@ -126,7 +135,7 @@ if __name__ == '__main__':
 
     fig, ax = get_pyplot_from_data(n_episodes, ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths)
     if save:
-        episode_path = os.path.join('episodes', f'{episode}-qtable.npy')
+        episode_path = os.path.join('episodes', f'qtable-{episode}.npy')
         np.save(episode_path, agent.q_table)
 
         plot_data = np.array([ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths]) 
