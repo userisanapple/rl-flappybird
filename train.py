@@ -30,8 +30,8 @@ def plot_data(n_episodes: int, ep_min_scores: list, ep_average_scores: list, ep_
     return (fig, ax)
 
 if __name__ == '__main__':
-    n_episodes = 50_000
-    save_interval = 2500
+    n_episodes = 100_000
+    save_interval = 5000
 
     env = gym.make("FlappyBird-v0", render_mode="rgb_array", use_lidar=False)
     env = RecordVideo(env, video_folder="episodes", name_prefix="training", episode_trigger=lambda x: x % save_interval == 0)
@@ -42,8 +42,8 @@ if __name__ == '__main__':
         start_lr=0.1,
         lr_decay=1.0/(n_episodes*2),
         start_epsilon=1.5,
-        epsilon_decay=1.0/(n_episodes/2),
-        end_epsilon=0.1,
+        epsilon_decay=1.0/(n_episodes/1000),
+        end_epsilon=0.01,
     )
 
     ep_min_scores = []
@@ -81,7 +81,7 @@ if __name__ == '__main__':
             # Checking if the player is still alive
             if terminated:
                 if 'episode' in info:
-                    interval_total_reward += info['episode']['r']
+                    interval_total_reward += cumulative_score
                     interval_total_len += info['episode']['l']
 
                     ep_lengths.append(info['episode']['l'])
@@ -91,14 +91,13 @@ if __name__ == '__main__':
                     ep_max_scores.append(max_score)
                 break
             ep_steps += 1
-            agent.decay()
 
         if not episode % save_interval and episode > 0:
             print(f'avg score: {interval_total_reward/save_interval}', end='\t')
             if 'episode' in info:
                 print(f'avg len: {interval_total_len/save_interval}', end='\t')
             print(f'lr: {agent.lr}', end='\t')
-            print(f'epsilon: {agent.epsilon}', end='\t')
+            print(f'epsilon: {agent.epsilon}')
             interval_total_reward = 0
             interval_total_len = 0
 
@@ -113,6 +112,7 @@ if __name__ == '__main__':
             # save plot
             fig, ax = plot_data(episode+1, ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths)
             plt.savefig(os.path.join('episodes', f'{episode}-plots.png'))
+        agent.decay()
         
     env.close()
 
