@@ -1,5 +1,6 @@
 flappy-bird-gymnasium
 gymnasium
 gymnasium[other]
+matplotlib
 numpy
 tqdm
