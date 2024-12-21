@@ -8,13 +8,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-def plot_data(n_episodes: int, ep_min_scores: list, ep_cumulative_scores: list, ep_max_scores: list, ep_lengths: list) -> tuple:
+def plot_data(n_episodes: int, ep_min_scores: list, ep_average_scores: list, ep_cumulative_scores: list, ep_max_scores: list, ep_lengths: list) -> tuple:
     plt.close()
     fig, ax = plt.subplots(1, 2, figsize=(15,5), sharex=True)
     linspace_x = np.linspace(0, n_episodes, num=n_episodes, dtype=int)
     scores_ax = ax[0]
-    scores_ax.plot(linspace_x, ep_min_scores, label='Min episode reward')
     scores_ax.plot(linspace_x, ep_cumulative_scores, label='Cumulative episode reward')
+    scores_ax.plot(linspace_x, ep_average_scores, label='Average episode reward')
+    scores_ax.plot(linspace_x, ep_min_scores, label='Min episode reward')
     scores_ax.plot(linspace_x, ep_max_scores, label='Max episode reward')
     scores_ax.set_ylabel('Reward')
     scores_ax.legend()
@@ -29,8 +30,8 @@ def plot_data(n_episodes: int, ep_min_scores: list, ep_cumulative_scores: list, 
     return (fig, ax)
 
 if __name__ == '__main__':
-    n_episodes = 100_000
-    save_interval = 10000
+    n_episodes = 50_000
+    save_interval = 2500
 
     env = gym.make("FlappyBird-v0", render_mode="rgb_array", use_lidar=False)
     env = RecordVideo(env, video_folder="episodes", name_prefix="training", episode_trigger=lambda x: x % save_interval == 0)
@@ -46,6 +47,7 @@ if __name__ == '__main__':
     )
 
     ep_min_scores = []
+    ep_avg_scores = []
     ep_cumulative_scores = []
     ep_max_scores = []
     ep_lengths = []
@@ -57,6 +59,8 @@ if __name__ == '__main__':
         
         max_score = None
         min_score = None
+        cumulative_score = 0
+        ep_steps = 0
         while True:
             # Next action:
             # (feed the observation to your agent here)
@@ -65,10 +69,12 @@ if __name__ == '__main__':
 
             # Processing:
             obs, reward, terminated, _, info = env.step(action)
-            if max_score is None or reward > max_score:
-                max_score = reward
-            if min_score is None or reward < min_score:
-                min_score = reward
+            shaped_reward = agent.shape_reward(obs, reward)
+            if max_score is None or shaped_reward > max_score:
+                max_score = shaped_reward
+            if min_score is None or shaped_reward < min_score:
+                min_score = shaped_reward
+            cumulative_score += shaped_reward
 
             agent.update(state, action, reward, terminated, obs)
             
@@ -80,9 +86,11 @@ if __name__ == '__main__':
 
                     ep_lengths.append(info['episode']['l'])
                     ep_min_scores.append(min_score)
-                    ep_cumulative_scores.append(info['episode']['r'])
+                    ep_avg_scores.append(cumulative_score/ep_steps)
+                    ep_cumulative_scores.append(cumulative_score)
                     ep_max_scores.append(max_score)
                 break
+            ep_steps += 1
             agent.decay()
 
         if not episode % save_interval and episode > 0:
@@ -103,10 +111,10 @@ if __name__ == '__main__':
             np.save(episode_path, agent.q_table)
 
             # save plot
-            fig, ax = plot_data(episode+1, ep_min_scores, ep_cumulative_scores, ep_max_scores, ep_lengths)
+            fig, ax = plot_data(episode+1, ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths)
             plt.savefig(os.path.join('episodes', f'{episode}-plots.png'))
         
     env.close()
 
-    fig, ax = plot_data(n_episodes, ep_min_scores, ep_cumulative_scores, ep_max_scores, ep_lengths)
+    fig, ax = plot_data(n_episodes, ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths)
     plt.show()
