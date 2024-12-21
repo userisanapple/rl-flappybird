@@ -78,11 +78,18 @@ class FlappyBirdAgent:
             shaped_reward = -10.0
 
         player_v = obs[9]
-        next_pipe_v = obs[5]
+        next_pipe_v_top = obs[4]
+        next_pipe_v_bottom = obs[5]
         last_pipe_h = obs[0]
         if last_pipe_h >= -0.15:
-            next_pipe_v = obs[2]
-        shaped_reward -= abs((player_v-next_pipe_v) * 2)
+            next_pipe_v_top = obs[1]
+            next_pipe_v_bottom = obs[2]
+
+        pipe_center = next_pipe_v_bottom + ((next_pipe_v_top - next_pipe_v_bottom) / 2)
+
+        # penalize based on distance from center of pipe (offset slightly down to account for jumping)
+        player_center_delta = abs(player_v - (pipe_center-0.05))
+        shaped_reward -= player_center_delta * 10
 
         return shaped_reward
 
