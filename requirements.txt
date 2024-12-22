@@ -3,4 +3,5 @@ gymnasium
 gymnasium[other]
 matplotlib
 numpy
+torch
 tqdm
