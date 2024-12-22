@@ -2,3 +2,6 @@ __pycache__
 episodes
 flappybird-agent
 venv
+*.npy
+*plot*.png
+*.mp4
