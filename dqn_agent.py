@@ -1,12 +1,9 @@
 import gymnasium as gym
 import numpy as np
-import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-
-from collections import deque
 
 class DQN(nn.Module):
     def __init__(self):
@@ -48,7 +45,6 @@ class FlappyBirdDQN:
         self.target_net = DQN().to(self.torch_device)
         self.update_target_net()
         self.loss_fn = nn.SmoothL1Loss()
-        # self.memory = deque(maxlen=memory_size)
 
         # replay structure:
         # state (5 floats returned by obs_to_state), action, next state (5 floats, like state), shaped reward, terminated
@@ -113,7 +109,7 @@ class FlappyBirdDQN:
 
         # FIFO, remove oldest replay
         if len(self.memory) > self.max_memory_size:
-            self.memory = self.memory[1:,:]
+            self.memory = self.memory[1:]
 
     def train(self):
         if len(self.memory) < self.batch_size:
