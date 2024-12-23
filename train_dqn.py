@@ -42,6 +42,7 @@ def get_pyplot_from_data(n_episodes: int, ep_min_scores: list, ep_average_scores
 if __name__ == '__main__':
     n_episodes = 5_000
     save_interval = 250
+    policy_update_interval = 4
     target_update_interval = 5000
     save = True
 
@@ -100,7 +101,10 @@ if __name__ == '__main__':
 
             agent.memory_push(state, action, agent.obs_to_state(obs), shaped_reward, terminated)
 
-            agent.train()
+            if not ep_steps % policy_update_interval:
+                agent.train()
+            if not ep_steps % target_update_interval:
+                agent.update_target_net()
             
             # Checking if the player is still alive
             if terminated:
@@ -115,8 +119,6 @@ if __name__ == '__main__':
                     ep_max_scores.append(max_score)
                 break
 
-            if not ep_steps % target_update_interval:
-                agent.update_target_net()
             ep_steps += 1
 
 
