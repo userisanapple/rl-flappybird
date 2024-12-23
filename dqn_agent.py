@@ -116,7 +116,11 @@ class FlappyBirdDQN:
             return
         
         # sample replays without replacement
-        transitions = self.memory[torch.randperm(len(self.memory))][:self.batch_size]
+        transitions = self.memory[torch.randperm(len(self.memory))][:self.batch_size - 1]
+
+        # combined experience replay, append latest replay to sampled batch
+        transitions = torch.cat((transitions, self.memory[-1].reshape(1, -1)), 0)
+
         batch_state = transitions[:,:5]
         batch_actions = transitions[:,5].to(dtype=torch.int64).unsqueeze(-1)
         batch_next_state = transitions[:,6:11]
@@ -126,7 +130,7 @@ class FlappyBirdDQN:
         batch_q_state = self.dqn(batch_state).gather(1, batch_actions)
 
         with torch.no_grad():
-            batch_q_next_action = batch_terminated * self.df * self.target_net(batch_next_state).max(dim=1, keepdim=True).values
+            batch_q_next_action = (1 - batch_terminated) * self.df * self.target_net(batch_next_state).max(dim=1, keepdim=True).values
 
         expected = batch_reward + batch_q_next_action
 
