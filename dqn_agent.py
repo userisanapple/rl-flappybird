@@ -28,7 +28,7 @@ class FlappyBirdDQN:
         torch_device: torch.device,
         optim_lr: float = 0.01,
         batch_size: int = 64,
-        memory_size: int = 512,
+        memory_size: int = 1_000_000,
         optimizer: optim.Optimizer = None,
         start_epsilon: float = 1.0,
         epsilon_decay: float = 0.005,
@@ -46,8 +46,16 @@ class FlappyBirdDQN:
 
         self.dqn = DQN().to(self.torch_device)
         self.target_net = DQN().to(self.torch_device)
+        self.update_target_net()
         self.loss_fn = nn.SmoothL1Loss()
-        self.memory = deque(maxlen=memory_size)
+        # self.memory = deque(maxlen=memory_size)
+
+        # replay structure:
+        # state (5 floats returned by obs_to_state), action, next state (5 floats, like state), shaped reward, terminated
+        # will be 13 values per replay
+
+        self.memory = torch.tensor(np.empty((0, 13)), dtype=torch.float32, device=self.torch_device)
+        self.max_memory_size = memory_size
         self.rng = np.random.default_rng(seed=seed)
 
         if optimizer:
@@ -100,15 +108,21 @@ class FlappyBirdDQN:
         return y_pred.argmax()
     
     def memory_push(self, state: tuple, action: int, next_state: tuple, reward: float, terminated: bool):
-        self.memory.append((*state, action, *next_state, reward, terminated))
+        replay_tensor = torch.tensor((*state, action, *next_state, reward, terminated), dtype=torch.float32, device=self.torch_device) 
+        self.memory = torch.cat((self.memory, replay_tensor.reshape(1, -1)), 0)
+
+        # FIFO, remove oldest replay
+        if len(self.memory) > self.max_memory_size:
+            self.memory = self.memory[1:,:]
 
     def train(self):
         if len(self.memory) < self.batch_size:
             return
         
-        transitions = torch.tensor(random.sample(self.memory, self.batch_size), dtype=torch.float32, device=self.torch_device)
+        # sample replays without replacement
+        transitions = self.memory[torch.randperm(len(self.memory))][:self.batch_size]
         batch_state = transitions[:,:5]
-        batch_actions = transitions[:,6].to(dtype=torch.int64).unsqueeze(-1)
+        batch_actions = transitions[:,5].to(dtype=torch.int64).unsqueeze(-1)
         batch_next_state = transitions[:,6:11]
         batch_reward = transitions[:,11].unsqueeze(-1)
         batch_terminated = transitions[:,12].unsqueeze(-1)
