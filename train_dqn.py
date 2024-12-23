@@ -60,7 +60,7 @@ if __name__ == '__main__':
     agent = FlappyBirdDQN(
         env=env,
         torch_device=device,
-        memory_size=500_000,
+        memory_size=1_000_000,
         optim_lr=0.001,
         batch_size=128,
         start_epsilon=1.0,
