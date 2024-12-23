@@ -46,8 +46,11 @@ if __name__ == '__main__':
     target_update_interval = 5000
     save = True
 
-    env = gym.make("FlappyBird-v0", render_mode="rgb_array", use_lidar=False)
-    env = RecordVideo(env, video_folder="episodes", name_prefix="training", episode_trigger=lambda x: x % save_interval == 0)
+    if save:
+        env = gym.make("FlappyBird-v0", render_mode="rgb_array", use_lidar=False)
+        env = RecordVideo(env, video_folder="episodes", name_prefix="training", episode_trigger=lambda x: x % save_interval == 0)
+    else:
+        env = gym.make("FlappyBird-v0", render_mode="human", use_lidar=False)
     env = RecordEpisodeStatistics(env)
 
     if torch.cuda.is_available():
@@ -135,6 +138,9 @@ if __name__ == '__main__':
                 if not os.path.exists('episodes'):
                     os.mkdir('episodes')
 
+                # save dqn model checkpoint
+                agent.serialize('episodes', episode)
+
                 # save plot
                 plot_data = np.array([ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths]) 
                 np.save(os.path.join('episodes', f'plot-{episode}.npy'), plot_data)
@@ -147,11 +153,10 @@ if __name__ == '__main__':
 
     fig, ax = get_pyplot_from_data(n_episodes, ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths)
     if save:
-        episode_path = os.path.join('episodes', f'qtable-{episode}.npy')
-        np.save(episode_path, agent.q_table)
+        agent.serialize('episodes', episode)
 
         plot_data = np.array([ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths]) 
-        np.save(os.path.join('episodes', f'plot-{episode}.npy'), plot_data)
+        np.save(os.path.join('episodes', f'plotdata-{episode}.npy'), plot_data)
 
         plt.savefig(os.path.join('episodes', f'plot-{episode}.png'))
     plt.show()

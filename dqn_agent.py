@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import os
 
 class DQN(nn.Module):
     def __init__(self):
@@ -32,6 +33,7 @@ class FlappyBirdDQN:
         end_epsilon: float = 0.1,
         discount_factor: float = 0.95,
         seed: int = 1234,
+        model_checkpoint: os.PathLike = None
     ):
         self.env = env
         self.torch_device = torch_device
@@ -43,6 +45,8 @@ class FlappyBirdDQN:
 
         self.dqn = DQN().to(self.torch_device)
         self.target_net = DQN().to(self.torch_device)
+        if model_checkpoint:
+            self.load(model_checkpoint)
         self.update_target_net()
         self.loss_fn = nn.SmoothL1Loss()
 
@@ -146,3 +150,11 @@ class FlappyBirdDQN:
 
     def decay(self):
         self.epsilon = max(self.end_epsilon, self.epsilon - self.epsilon_decay)
+
+    def serialize(self, episodes_dir: os.PathLike, episode_no: int):
+        print(f'serializing to file {os.path.join(episodes_dir, f'nn-{episode_no}.pth')}\n')
+        torch.save(self.dqn.state_dict(), os.path.join(episodes_dir, f'nn-{episode_no}.pth'))
+
+    def load(self, checkpoint_path: os.PathLike):
+        print(f'loading checkpoint {checkpoint_path}')
+        self.dqn.load_state_dict(torch.load(checkpoint_path, weights_only=True))
