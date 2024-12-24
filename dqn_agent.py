@@ -54,7 +54,9 @@ class FlappyBirdDQN:
         # state (5 floats returned by obs_to_state), action, next state (5 floats, like state), shaped reward, terminated
         # will be 13 values per replay
 
-        self.memory = torch.tensor(np.empty((0, 13)), dtype=torch.float32, device=self.torch_device)
+        self.memory = torch.tensor(np.empty((memory_size, 13)), dtype=torch.float32, device=self.torch_device)
+        self.memory_len = 0
+        self.oldest_mem = 0
         self.max_memory_size = memory_size
         self.rng = np.random.default_rng(seed=seed)
 
@@ -109,21 +111,23 @@ class FlappyBirdDQN:
     
     def memory_push(self, state: tuple, action: int, next_state: tuple, reward: float, terminated: bool):
         replay_tensor = torch.tensor((*state, action, *next_state, reward, terminated), dtype=torch.float32, device=self.torch_device) 
-        self.memory = torch.cat((self.memory, replay_tensor.reshape(1, -1)), 0)
 
-        # FIFO, remove oldest replay
-        if len(self.memory) > self.max_memory_size:
-            self.memory = self.memory[1:]
+        if self.memory_len < self.max_memory_size:
+            self.memory[self.memory_len] = replay_tensor
+            self.memory_len += 1
+        else:
+            self.memory[self.oldest_mem] = replay_tensor
+            self.oldest_mem = (self.oldest_mem + 1) % self.max_memory_size
 
     def train(self):
-        if len(self.memory) < self.batch_size:
+        if self.memory_len < self.batch_size:
             return
         
         # sample replays without replacement
-        transitions = self.memory[torch.randperm(len(self.memory))][:self.batch_size - 1]
+        transitions = self.memory[torch.randperm(self.memory_len)][:self.batch_size - 1]
 
         # combined experience replay, append latest replay to sampled batch
-        transitions = torch.cat((transitions, self.memory[-1].reshape(1, -1)), 0)
+        transitions = torch.cat((transitions, self.memory[(self.oldest_mem - 1) % self.memory_len].reshape(1, -1)), 0)
 
         batch_state = transitions[:,:5]
         batch_actions = transitions[:,5].to(dtype=torch.int64).unsqueeze(-1)
@@ -152,7 +156,7 @@ class FlappyBirdDQN:
         self.epsilon = max(self.end_epsilon, self.epsilon - self.epsilon_decay)
 
     def serialize(self, episodes_dir: os.PathLike, episode_no: int):
-        print(f'serializing to file {os.path.join(episodes_dir, f'nn-{episode_no}.pth')}\n')
+        print(f'serializing to file {os.path.join(episodes_dir, f"nn-{episode_no}.pth")}\n')
         torch.save(self.dqn.state_dict(), os.path.join(episodes_dir, f'nn-{episode_no}.pth'))
 
     def load(self, checkpoint_path: os.PathLike):
