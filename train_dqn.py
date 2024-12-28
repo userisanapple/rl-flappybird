@@ -4,6 +4,7 @@ from tqdm import tqdm
 
 import flappy_bird_gymnasium
 import gymnasium as gym
+import json
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -40,10 +41,13 @@ def get_pyplot_from_data(n_episodes: int, ep_min_scores: list, ep_average_scores
     return (fig, ax)
 
 if __name__ == '__main__':
-    n_episodes = 5_000
+    try:
+        with open('model_conf.json', 'r') as conf_file:
+            config = json.load(conf_file)
+    except:
+        print("Couldn't load config")
+        exit()
     save_interval = 250
-    policy_update_interval = 4
-    target_update_interval = 5000
     save = True
 
     if save:
@@ -64,12 +68,13 @@ if __name__ == '__main__':
     agent = FlappyBirdDQN(
         env=env,
         torch_device=device,
-        memory_size=1_000_000,
-        optim_lr=0.001,
-        batch_size=128,
-        start_epsilon=1.0,
-        epsilon_decay=1.0/(n_episodes/8),
-        end_epsilon=0.01,
+        memory_size=config['replay_memory_size'],
+        optim_lr=config['learning_rate'],
+        batch_size=config['batch_size'],
+        start_epsilon=config['start_epsilon'],
+        epsilon_decay=config['epsilon_decay'],
+        end_epsilon=config['end_epsilon'],
+        discount_factor=config['discount_factor'],
     )
 
     ep_min_scores = []
@@ -80,7 +85,7 @@ if __name__ == '__main__':
 
     interval_total_reward = 0
     interval_total_len = 0
-    for episode in tqdm(range(n_episodes)):
+    for episode in tqdm(range(config['n_episodes'])):
         obs, _ = env.reset()
         
         max_score = None
@@ -104,9 +109,9 @@ if __name__ == '__main__':
 
             agent.memory_push(state, action, agent.obs_to_state(obs), shaped_reward, terminated)
 
-            if not ep_steps % policy_update_interval:
+            if not ep_steps % config['policy_update_interval']:
                 agent.train()
-            if not ep_steps % target_update_interval:
+            if not ep_steps % config['target_update_interval']:
                 agent.update_target_net()
             
             # Checking if the player is still alive
@@ -151,7 +156,7 @@ if __name__ == '__main__':
 
     env.close()
 
-    fig, ax = get_pyplot_from_data(n_episodes, ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths)
+    fig, ax = get_pyplot_from_data(config['n_episodes'], ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths)
     if save:
         agent.serialize('episodes', episode)
 
