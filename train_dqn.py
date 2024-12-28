@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import torch
+import wandb
 
 def get_pyplot_from_data(n_episodes: int, ep_min_scores: list, ep_average_scores: list, ep_cumulative_scores: list, ep_max_scores: list, ep_lengths: list) -> tuple:
     plt.close()
@@ -41,14 +42,20 @@ def get_pyplot_from_data(n_episodes: int, ep_min_scores: list, ep_average_scores
     return (fig, ax)
 
 if __name__ == '__main__':
+    save_interval = 250
+    save = True
+
     try:
         with open('model_conf.json', 'r') as conf_file:
             config = json.load(conf_file)
     except:
         print("Couldn't load config")
         exit()
-    save_interval = 250
-    save = True
+
+    wandb.init(
+        project="rl-flappybird",
+        config=config
+    )
 
     if save:
         env = gym.make("FlappyBird-v0", render_mode="rgb_array", use_lidar=False)
@@ -153,6 +160,8 @@ if __name__ == '__main__':
                 fig, ax = get_pyplot_from_data(episode+1, ep_min_scores, ep_avg_scores, ep_cumulative_scores, ep_max_scores, ep_lengths)
                 plt.savefig(os.path.join('episodes', f'plot-{episode}.png'))
         agent.decay()
+
+        wandb.log({"cumulative-score": cumulative_score, "episode-length": info['episode']['l'], "epsilon": agent.epsilon})
 
     env.close()
 
